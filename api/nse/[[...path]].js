@@ -1,8 +1,8 @@
 const upstream = "https://www.nseindia.com";
 
 export default async function handler(req, res) {
-  const targetPath = req.url.replace(/^\/api\/nse/, "") || "/";
-  const targetUrl = `${upstream}${targetPath}`;
+  const suffix = req.url.replace(/^\/api\/nse/, "") || "/";
+  const targetUrl = `${upstream}${suffix}`;
 
   const headers = new Headers();
   const forwardList = [
