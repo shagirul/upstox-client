@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/upstox/client.ts","./src/upstox/holiday.ts","./src/upstox/service.ts","./src/upstox/types.ts","./src/upstox/utils.ts"],"errors":true,"version":"5.9.3"}
