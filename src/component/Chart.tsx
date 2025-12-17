@@ -1,4 +1,11 @@
-import { ColorType, createChart, type CandlestickData, type IChartApi, type ISeriesApi, type UTCTimestamp } from "lightweight-charts";
+import {
+  ColorType,
+  createChart,
+  type CandlestickData,
+  type IChartApi,
+  type ISeriesApi,
+  type UTCTimestamp,
+} from "lightweight-charts";
 import { useEffect, useMemo, useRef } from "react";
 import type { CandleBar } from "../upstox/types";
 
