@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import type { CandleBar, IntervalUnit, ApiError } from "./upstox/types";
 import { UpstoxApiClient } from "./upstox/client";
 import { HistoricalMarketDataService } from "./upstox/service";
@@ -6,11 +6,6 @@ import { isValidYmd } from "./upstox/utils";
 import Chart from "./component/Chart.tsx";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
-// Default to the dev proxy (/nse → vite.config.ts). Override with VITE_NSE_BASE
-// (e.g., your own backend route) for production.
-const NSE_BASE = import.meta.env.VITE_NSE_BASE ?? "/nse";
-const NSE_AUTOCOMPLETE_API = `${NSE_BASE}/api/NextApi/search/autocomplete?q=`;
-const NSE_METADATA_API = `${NSE_BASE}/api/NextApi/apiClient/GetQuoteApi?functionName=getMetaData&symbol=`;
 
 function prettyJson(x: unknown): string {
   try {
@@ -47,7 +42,6 @@ export default function App() {
   const [token, setToken] = useState<string>(
     import.meta.env.VITE_UPSTOX_TOKEN ?? ""
   );
-  const [useManualInstrument, setUseManualInstrument] = useState<boolean>(true);
   const [instrumentKey, setInstrumentKey] =
     useState<string>(DEFAULT_INSTRUMENT);
   const [unit, setUnit] = useState<IntervalUnit>("days");
@@ -60,13 +54,6 @@ export default function App() {
   const [includeHolidayCheck, setIncludeHolidayCheck] = useState<boolean>(true);
 
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<
-    { symbol: string; symbol_info: string }[]
-  >([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [metaLoading, setMetaLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string>("");
   const [candles, setCandles] = useState<CandleBar[]>([]);
   const [raw, setRaw] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -144,72 +131,6 @@ export default function App() {
     }
   }
 
-  useEffect(() => {
-    if (useManualInstrument) {
-      return;
-    }
-
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setSearchError("");
-      return;
-    }
-
-    const timeout = setTimeout(async () => {
-      const query = searchQuery.trim();
-      setSearchLoading(true);
-      setSearchError("");
-      try {
-        const res = await fetch(
-          `${NSE_AUTOCOMPLETE_API}${encodeURIComponent(query)}`
-        );
-        if (!res.ok) {
-          throw new Error(`Search failed (status ${res.status})`);
-        }
-        const data = await res.json();
-        setSearchResults(
-          Array.isArray(data?.symbols)
-            ? data.symbols.map((s: any) => ({
-                symbol: s.symbol,
-                symbol_info: s.symbol_info,
-              }))
-            : []
-        );
-      } catch (err: any) {
-        setSearchError(err?.message ?? "Unable to search at the moment.");
-        setSearchResults([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    }, 600);
-
-    return () => clearTimeout(timeout);
-  }, [searchQuery, useManualInstrument]);
-
-  async function selectSymbol(symbol: string, company: string) {
-    setSearchQuery(`${symbol} — ${company}`);
-    setSearchResults([]);
-    setSearchError("");
-    setMetaLoading(true);
-    try {
-      const res = await fetch(
-        `${NSE_METADATA_API}${encodeURIComponent(symbol)}`
-      );
-      if (!res.ok) {
-        throw new Error(`Metadata fetch failed (status ${res.status})`);
-      }
-      const data = await res.json();
-      if (!data?.isin) {
-        throw new Error("ISIN not found in response");
-      }
-      setInstrumentKey(`NSE_EQ|${data.isin}`);
-    } catch (err: any) {
-      setSearchError(err?.message ?? "Unable to fetch symbol metadata.");
-    } finally {
-      setMetaLoading(false);
-    }
-  }
-
   return (
     <div className="container">
       <h1 style={{ margin: "6px 0 14px" }}>Upstox Candle Fetcher</h1>
@@ -227,56 +148,10 @@ export default function App() {
               autoComplete="off"
             />
             <div className="muted small">
-              Enter the exact instrument key. Use this when NSE search is blocked
-              by CORS.
+              Enter the exact instrument key.
             </div>
-          </label>
-          <label style={{ alignSelf: "flex-end" }} className="muted small">
-            <input
-              type="checkbox"
-              checked={!useManualInstrument}
-              onChange={(e) => setUseManualInstrument(!e.target.checked)}
-            />
-            &nbsp;Enable NSE search (may fail due to CORS)
           </label>
         </div>
-
-        {!useManualInstrument && (
-          <div className="hstack">
-            <label style={{ minWidth: 320, flex: 2 }}>
-              Search by symbol or company
-              <div className="searchBox">
-              <input
-                style={{ width: "100%" }}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type to search NSE symbols"
-                autoComplete="off"
-              />
-              {metaLoading && <span className="pill">Loading ISIN…</span>}
-            </div>
-            {searchError && <span className="error small">{searchError}</span>}
-            {!!searchResults.length && (
-              <div className="dropdown">
-                {searchResults.map((item) => (
-                  <button
-                    type="button"
-                    key={item.symbol}
-                    onClick={() => selectSymbol(item.symbol, item.symbol_info)}
-                  >
-                    <div className="dropdown-title">{item.symbol}</div>
-                    <div className="muted">{item.symbol_info}</div>
-                  </button>
-                ))}
-                {searchLoading && <div className="muted">Searching…</div>}
-              </div>
-            )}
-            {!searchResults.length && searchLoading && (
-              <div className="muted">Searching…</div>
-            )}
-          </label>
-          </div>
-        )}
 
         <div className="hstack">
           <label>
