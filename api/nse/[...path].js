@@ -1,7 +1,16 @@
 const upstream = "https://www.nseindia.com";
 
 export default async function handler(req, res) {
-  const suffix = req.url.replace(/^\/api\/nse/, "") || "/";
+  const queryPath = req.query?.path;
+  const pathSuffix = Array.isArray(queryPath)
+    ? `/${queryPath.join("/")}`
+    : typeof queryPath === "string"
+      ? `/${queryPath}`
+      : "";
+  const search = req.url.includes("?")
+    ? req.url.slice(req.url.indexOf("?"))
+    : "";
+  const suffix = `${pathSuffix}${search}` || "/";
   const targetUrl = `${upstream}${suffix}`;
 
   const headers = new Headers();
