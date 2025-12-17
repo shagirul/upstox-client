@@ -6,10 +6,12 @@ import { isValidYmd } from "./upstox/utils";
 import Chart from "./component/Chart";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
-const NSE_AUTOCOMPLETE_API =
-  "https://www.nseindia.com/api/NextApi/search/autocomplete?q=";
+// Default to the dev proxy (/nse → vite.config.ts). Override with VITE_NSE_BASE
+// (e.g., your own backend route) for production.
+const NSE_BASE = import.meta.env.VITE_NSE_BASE ?? "/nse";
+const NSE_AUTOCOMPLETE_API = `${NSE_BASE}/api/NextApi/search/autocomplete?q=`;
 const NSE_METADATA_API =
-  "https://www.nseindia.com/api/NextApi/apiClient/GetQuoteApi?functionName=getMetaData&symbol=";
+  `${NSE_BASE}/api/NextApi/apiClient/GetQuoteApi?functionName=getMetaData&symbol=`;
 
 function prettyJson(x: unknown): string {
   try {

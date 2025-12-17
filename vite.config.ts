@@ -16,6 +16,12 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/upstox/, ''),
       },
+      '/nse': {
+        target: 'https://www.nseindia.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/nse/, ''),
+      },
     },
   },
 })
