@@ -10,8 +10,7 @@ const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
 // (e.g., your own backend route) for production.
 const NSE_BASE = import.meta.env.VITE_NSE_BASE ?? "/nse";
 const NSE_AUTOCOMPLETE_API = `${NSE_BASE}/api/NextApi/search/autocomplete?q=`;
-const NSE_METADATA_API =
-  `${NSE_BASE}/api/NextApi/apiClient/GetQuoteApi?functionName=getMetaData&symbol=`;
+const NSE_METADATA_API = `${NSE_BASE}/api/NextApi/apiClient/GetQuoteApi?functionName=getMetaData&symbol=`;
 
 function prettyJson(x: unknown): string {
   try {
@@ -156,7 +155,9 @@ export default function App() {
       setSearchLoading(true);
       setSearchError("");
       try {
-        const res = await fetch(`${NSE_AUTOCOMPLETE_API}${encodeURIComponent(query)}`);
+        const res = await fetch(
+          `${NSE_AUTOCOMPLETE_API}${encodeURIComponent(query)}`
+        );
         if (!res.ok) {
           throw new Error(`Search failed (status ${res.status})`);
         }
@@ -186,7 +187,9 @@ export default function App() {
     setSearchError("");
     setMetaLoading(true);
     try {
-      const res = await fetch(`${NSE_METADATA_API}${encodeURIComponent(symbol)}`);
+      const res = await fetch(
+        `${NSE_METADATA_API}${encodeURIComponent(symbol)}`
+      );
       if (!res.ok) {
         throw new Error(`Metadata fetch failed (status ${res.status})`);
       }
@@ -206,33 +209,6 @@ export default function App() {
     <div className="container">
       <h1 style={{ margin: "6px 0 14px" }}>Upstox Candle Fetcher</h1>
       <div className="card">
-        {/* <div className="hstack">
-          <label style={{ minWidth: 260, flex: 1 }}>
-            API base (default uses dev proxy)
-            <input
-              value={apiBase}
-              onChange={(e) => setApiBase(e.target.value)}
-              placeholder="/upstox"
-            />
-            <span className="small">
-              Tip: keep <code>/upstox</code> for dev. For direct calls, use{" "}
-              <code>https://api.upstox.com</code>.
-            </span>
-          </label>
-
-          <label style={{ minWidth: 260, flex: 1 }}>
-            Access token (optional)
-            <input
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Bearer token (optional)"
-            />
-            <span className="small">
-              If endpoints return 401, paste token here.
-            </span>
-          </label>
-        </div> */}
-
         <hr />
 
         <div className="hstack">
@@ -240,6 +216,7 @@ export default function App() {
             Search by symbol or company
             <div className="searchBox">
               <input
+                style={{ width: "100%" }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Type to search NSE symbols"
@@ -247,9 +224,6 @@ export default function App() {
               />
               {metaLoading && <span className="pill">Loading ISIN…</span>}
             </div>
-            <span className="small">
-              Selecting a result fetches the ISIN and fills the instrument key.
-            </span>
             {searchError && <span className="error small">{searchError}</span>}
             {!!searchResults.length && (
               <div className="dropdown">
@@ -270,17 +244,6 @@ export default function App() {
               <div className="muted">Searching…</div>
             )}
           </label>
-
-          <label style={{ minWidth: 280, flex: 1 }}>
-            Instrument key
-            <input
-              value={instrumentKey}
-              onChange={(e) => setInstrumentKey(e.target.value)}
-              placeholder="e.g. NSE_EQ|INE848E01016"
-            />
-            <span className="small">Auto-filled from search, editable if needed.</span>
-          </label>
-
           <label>
             Unit
             <select
