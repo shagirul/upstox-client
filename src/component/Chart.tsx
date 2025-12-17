@@ -14,8 +14,19 @@ type ChartProps = {
   height?: number;
 };
 
+function parseOffsetMinutes(iso: string): number {
+  const match = iso.match(/([+-])(\d{2}):?(\d{2})$/);
+  if (!match) return 0;
+
+  const [, sign, hours, minutes] = match;
+  const totalMinutes = Number(hours) * 60 + Number(minutes);
+  return sign === "-" ? -totalMinutes : totalMinutes;
+}
+
 function isoToUtcSeconds(iso: string): UTCTimestamp {
-  return Math.floor(new Date(iso).getTime() / 1000) as UTCTimestamp;
+  const baseUtcMs = new Date(iso).getTime();
+  const offsetMs = parseOffsetMinutes(iso) * 60 * 1000;
+  return Math.floor((baseUtcMs + offsetMs) / 1000) as UTCTimestamp;
 }
 
 function toCandlestickData(candles: CandleBar[] = []): CandlestickData[] {
