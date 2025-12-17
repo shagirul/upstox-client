@@ -6,7 +6,7 @@ import {
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CandleBar } from "../upstox/types";
 
 type ChartProps = {
@@ -48,8 +48,20 @@ export default function Chart({ candles = [], height = 520 }: ChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const [hoverCandle, setHoverCandle] = useState<CandleBar | null>(null);
 
   const data = useMemo(() => toCandlestickData(candles), [candles]);
+  const candleByTime = useMemo(() => {
+    const map = new Map<UTCTimestamp, CandleBar>();
+    candles
+      .filter((candle): candle is CandleBar & { timestamp: string } =>
+        Boolean(candle && candle.timestamp)
+      )
+      .forEach((candle) => {
+        map.set(isoToUtcSeconds(candle.timestamp), candle);
+      });
+    return map;
+  }, [candles]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -132,6 +144,25 @@ export default function Chart({ candles = [], height = 520 }: ChartProps) {
     if (data.length) chart.timeScale().fitContent();
   }, [data]);
 
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    const handleCrosshairMove = (param: any) => {
+      const t = param?.time as UTCTimestamp | undefined;
+      if (!t) {
+        setHoverCandle(null);
+        return;
+      }
+
+      const candle = candleByTime.get(t) ?? null;
+      setHoverCandle(candle);
+    };
+
+    chart.subscribeCrosshairMove(handleCrosshairMove);
+    return () => chart.unsubscribeCrosshairMove(handleCrosshairMove);
+  }, [candleByTime]);
+
   return (
     <div style={{ marginTop: 12 }}>
       <div
@@ -151,6 +182,36 @@ export default function Chart({ candles = [], height = 520 }: ChartProps) {
         >
           Go to Real-Time
         </button>
+        <div
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            minWidth: 260,
+          }}
+        >
+          {hoverCandle ? (
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 8px" }}>
+              <span className="muted">Time</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                {hoverCandle.timestamp}
+              </span>
+              <span className="muted">Open</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{hoverCandle.open}</span>
+              <span className="muted">High</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{hoverCandle.high}</span>
+              <span className="muted">Low</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{hoverCandle.low}</span>
+              <span className="muted">Close</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{hoverCandle.close}</span>
+              <span className="muted">Volume</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{hoverCandle.volume}</span>
+            </div>
+          ) : (
+            <span className="muted">Hover a candle to see OHLCV</span>
+          )}
+        </div>
       </div>
     </div>
   );
