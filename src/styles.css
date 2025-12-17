@@ -1,11 +1,14 @@
 :root {
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   line-height: 1.5;
   font-weight: 400;
   color-scheme: light dark;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -14,20 +17,22 @@ body {
   color: #e7edf5;
 }
 
-a { color: inherit; }
+a {
+  color: inherit;
+}
 
 .container {
-  max-width: 1100px;
+  max-width: 1300px;
   margin: 0 auto;
   padding: 20px;
 }
 
 .card {
   background: #121a24;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
 .hstack {
@@ -44,21 +49,27 @@ label {
   opacity: 0.9;
 }
 
-input, select, button, textarea {
+input,
+select,
+button,
+textarea {
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: #0e141d;
   color: #e7edf5;
   padding: 10px 12px;
   outline: none;
 }
 
-input::placeholder, textarea::placeholder { opacity: 0.6; }
+input::placeholder,
+textarea::placeholder {
+  opacity: 0.6;
+}
 
 button {
   cursor: pointer;
   background: #2b6cff;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   font-weight: 600;
 }
 
@@ -78,14 +89,14 @@ button:disabled {
 
 hr {
   border: none;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   margin: 14px 0;
 }
 
 .tableWrap {
   overflow: auto;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 table {
@@ -94,9 +105,10 @@ table {
   font-size: 13px;
 }
 
-th, td {
+th,
+td {
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   white-space: nowrap;
 }
 
@@ -113,8 +125,8 @@ th {
   gap: 6px;
   padding: 4px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
   font-size: 12px;
 }
 
@@ -130,6 +142,7 @@ th {
 .codebox {
   width: 100%;
   min-height: 140px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
   font-size: 12px;
 }

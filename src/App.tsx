@@ -3,6 +3,7 @@ import type { CandleBar, IntervalUnit, ApiError } from "./upstox/types";
 import { UpstoxApiClient } from "./upstox/client";
 import { HistoricalMarketDataService } from "./upstox/service";
 import { isValidYmd } from "./upstox/utils";
+import Chart from "./component/Chart";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
 
@@ -134,7 +135,7 @@ export default function App() {
     <div className="container">
       <h1 style={{ margin: "6px 0 14px" }}>Upstox Candle Fetcher</h1>
       <div className="card">
-        <div className="hstack">
+        {/* <div className="hstack">
           <label style={{ minWidth: 260, flex: 1 }}>
             API base (default uses dev proxy)
             <input
@@ -159,7 +160,7 @@ export default function App() {
               If endpoints return 401, paste token here.
             </span>
           </label>
-        </div>
+        </div> */}
 
         <hr />
 
@@ -203,9 +204,7 @@ export default function App() {
               value={mode}
               onChange={(e) => setMode(e.target.value as any)}
             >
-              <option value="fromStartToNow">
-                start → now (Java “start-only”)
-              </option>
+              <option value="fromStartToNow">start → now</option>
               <option value="range">range (start + end)</option>
             </select>
           </label>
@@ -231,7 +230,7 @@ export default function App() {
             />
           </label>
 
-          <label style={{ minWidth: 220 }}>
+          {/* <label style={{ minWidth: 220 }}>
             Holiday check (v2)
             <select
               value={includeHolidayCheck ? "on" : "off"}
@@ -240,7 +239,7 @@ export default function App() {
               <option value="on">on (weekend + Upstox holiday list)</option>
               <option value="off">off (weekend only)</option>
             </select>
-          </label>
+          </label> */}
 
           <button onClick={runFetch} disabled={loading}>
             {loading ? "Fetching…" : "Fetch"}
@@ -281,8 +280,14 @@ export default function App() {
             </div>
           </>
         )}
+        {candles.length > 0 && (
+          <div style={{ padding: "16px" }}>
+            {" "}
+            <Chart candles={candles} />
+          </div>
+        )}
 
-        {summary && (
+        {/* {summary && (
           <>
             <hr />
             <div className="hstack">
@@ -301,9 +306,9 @@ export default function App() {
               </span>
             </div>
           </>
-        )}
+        )} */}
 
-        {candles.length > 0 && (
+        {/* {candles.length > 0 && (
           <>
             <hr />
             <div className="tableWrap">
@@ -337,24 +342,10 @@ export default function App() {
               </table>
             </div>
           </>
-        )}
+        )} */}
 
         <hr />
-        <label>
-          Raw (debug)
-          <textarea
-            className="codebox"
-            value={raw}
-            readOnly
-            placeholder="After fetch, you'll see a small raw preview here."
-          />
-        </label>
       </div>
-
-      <p className="small" style={{ marginTop: 14, opacity: 0.8 }}>
-        Uses a dev proxy (<code>/upstox</code> →{" "}
-        <code>https://api.upstox.com</code>) for CORS safety during local runs.
-      </p>
     </div>
   );
 }
