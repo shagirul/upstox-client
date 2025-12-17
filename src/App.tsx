@@ -47,6 +47,7 @@ export default function App() {
   const [token, setToken] = useState<string>(
     import.meta.env.VITE_UPSTOX_TOKEN ?? ""
   );
+  const [useManualInstrument, setUseManualInstrument] = useState<boolean>(true);
   const [instrumentKey, setInstrumentKey] =
     useState<string>(DEFAULT_INSTRUMENT);
   const [unit, setUnit] = useState<IntervalUnit>("days");
@@ -144,6 +145,10 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (useManualInstrument) {
+      return;
+    }
+
     if (!searchQuery.trim()) {
       setSearchResults([]);
       setSearchError("");
@@ -179,7 +184,7 @@ export default function App() {
     }, 600);
 
     return () => clearTimeout(timeout);
-  }, [searchQuery]);
+  }, [searchQuery, useManualInstrument]);
 
   async function selectSymbol(symbol: string, company: string) {
     setSearchQuery(`${symbol} — ${company}`);
@@ -213,8 +218,34 @@ export default function App() {
 
         <div className="hstack">
           <label style={{ minWidth: 320, flex: 2 }}>
-            Search by symbol or company
-            <div className="searchBox">
+            Instrument key
+            <input
+              style={{ width: "100%" }}
+              value={instrumentKey}
+              onChange={(e) => setInstrumentKey(e.target.value)}
+              placeholder="e.g. NSE_EQ|INE848E01016"
+              autoComplete="off"
+            />
+            <div className="muted small">
+              Enter the exact instrument key. Use this when NSE search is blocked
+              by CORS.
+            </div>
+          </label>
+          <label style={{ alignSelf: "flex-end" }} className="muted small">
+            <input
+              type="checkbox"
+              checked={!useManualInstrument}
+              onChange={(e) => setUseManualInstrument(!e.target.checked)}
+            />
+            &nbsp;Enable NSE search (may fail due to CORS)
+          </label>
+        </div>
+
+        {!useManualInstrument && (
+          <div className="hstack">
+            <label style={{ minWidth: 320, flex: 2 }}>
+              Search by symbol or company
+              <div className="searchBox">
               <input
                 style={{ width: "100%" }}
                 value={searchQuery}
@@ -244,6 +275,10 @@ export default function App() {
               <div className="muted">Searching…</div>
             )}
           </label>
+          </div>
+        )}
+
+        <div className="hstack">
           <label>
             Unit
             <select
