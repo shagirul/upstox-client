@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import type { CandleBar, IntervalUnit, ApiError } from "./upstox/types";
 import { UpstoxApiClient } from "./upstox/client";
 import { HistoricalMarketDataService } from "./upstox/service";
@@ -6,6 +6,12 @@ import { isValidYmd } from "./upstox/utils";
 import Chart from "./component/Chart.tsx";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
+// Default to the dev proxy (/nse → vite.config.ts). Override with VITE_NSE_BASE
+// (e.g., your own backend route) for production.
+const NSE_BASE = import.meta.env.VITE_NSE_BASE ?? "/nse";
+const NSE_AUTOCOMPLETE_API = `${NSE_BASE}/api/NextApi/search/autocomplete?q=`;
+const NSE_METADATA_API =
+  `${NSE_BASE}/api/NextApi/apiClient/GetQuoteApi?functionName=getMetaData&symbol=`;
 
 function prettyJson(x: unknown): string {
   try {
@@ -54,6 +60,13 @@ export default function App() {
   const [includeHolidayCheck, setIncludeHolidayCheck] = useState<boolean>(true);
 
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    { symbol: string; symbol_info: string }[]
+  >([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string>("");
   const [candles, setCandles] = useState<CandleBar[]>([]);
   const [raw, setRaw] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -131,6 +144,64 @@ export default function App() {
     }
   }
 
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setSearchError("");
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      const query = searchQuery.trim();
+      setSearchLoading(true);
+      setSearchError("");
+      try {
+        const res = await fetch(`${NSE_AUTOCOMPLETE_API}${encodeURIComponent(query)}`);
+        if (!res.ok) {
+          throw new Error(`Search failed (status ${res.status})`);
+        }
+        const data = await res.json();
+        setSearchResults(
+          Array.isArray(data?.symbols)
+            ? data.symbols.map((s: any) => ({
+                symbol: s.symbol,
+                symbol_info: s.symbol_info,
+              }))
+            : []
+        );
+      } catch (err: any) {
+        setSearchError(err?.message ?? "Unable to search at the moment.");
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  async function selectSymbol(symbol: string, company: string) {
+    setSearchQuery(`${symbol} — ${company}`);
+    setSearchResults([]);
+    setSearchError("");
+    setMetaLoading(true);
+    try {
+      const res = await fetch(`${NSE_METADATA_API}${encodeURIComponent(symbol)}`);
+      if (!res.ok) {
+        throw new Error(`Metadata fetch failed (status ${res.status})`);
+      }
+      const data = await res.json();
+      if (!data?.isin) {
+        throw new Error("ISIN not found in response");
+      }
+      setInstrumentKey(`NSE_EQ|${data.isin}`);
+    } catch (err: any) {
+      setSearchError(err?.message ?? "Unable to fetch symbol metadata.");
+    } finally {
+      setMetaLoading(false);
+    }
+  }
+
   return (
     <div className="container">
       <h1 style={{ margin: "6px 0 14px" }}>Upstox Candle Fetcher</h1>
@@ -166,12 +237,48 @@ export default function App() {
 
         <div className="hstack">
           <label style={{ minWidth: 320, flex: 2 }}>
+            Search by symbol or company
+            <div className="searchBox">
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type to search NSE symbols"
+                autoComplete="off"
+              />
+              {metaLoading && <span className="pill">Loading ISIN…</span>}
+            </div>
+            <span className="small">
+              Selecting a result fetches the ISIN and fills the instrument key.
+            </span>
+            {searchError && <span className="error small">{searchError}</span>}
+            {!!searchResults.length && (
+              <div className="dropdown">
+                {searchResults.map((item) => (
+                  <button
+                    type="button"
+                    key={item.symbol}
+                    onClick={() => selectSymbol(item.symbol, item.symbol_info)}
+                  >
+                    <div className="dropdown-title">{item.symbol}</div>
+                    <div className="muted">{item.symbol_info}</div>
+                  </button>
+                ))}
+                {searchLoading && <div className="muted">Searching…</div>}
+              </div>
+            )}
+            {!searchResults.length && searchLoading && (
+              <div className="muted">Searching…</div>
+            )}
+          </label>
+
+          <label style={{ minWidth: 280, flex: 1 }}>
             Instrument key
             <input
               value={instrumentKey}
               onChange={(e) => setInstrumentKey(e.target.value)}
               placeholder="e.g. NSE_EQ|INE848E01016"
             />
+            <span className="small">Auto-filled from search, editable if needed.</span>
           </label>
 
           <label>
