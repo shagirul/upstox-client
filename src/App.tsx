@@ -46,7 +46,7 @@ export default function App() {
     useState<string>(DEFAULT_INSTRUMENT);
   const [unit, setUnit] = useState<IntervalUnit>("days");
   const [interval, setInterval] = useState<string>("1");
-  const [startDate, setStartDate] = useState<string>("2024-10-01");
+  const [startDate, setStartDate] = useState<string>("2025-10-01");
   const [endDate, setEndDate] = useState<string>("2024-11-01");
   const [mode, setMode] = useState<"range" | "fromStartToNow">(
     "fromStartToNow"
