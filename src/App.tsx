@@ -3,7 +3,7 @@ import type { CandleBar, IntervalUnit, ApiError } from "./upstox/types";
 import { UpstoxApiClient } from "./upstox/client";
 import { HistoricalMarketDataService } from "./upstox/service";
 import { isValidYmd } from "./upstox/utils";
-import Chart from "./component/Chart.jsx";
+import Chart from "./component/Chart.tsx";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
 
