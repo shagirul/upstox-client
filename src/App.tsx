@@ -6,14 +6,13 @@ import { isValidYmd } from "./upstox/utils";
 import Chart from "./component/Chart.tsx";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
-// Default to the dev proxy (/nse → vite.config.ts). In production, route
-// through our own serverless proxy (/api/nse) so the call is same-origin and
-// avoids NSE's strict CORS policy unless VITE_NSE_BASE overrides it.
-const NSE_BASE =
-  import.meta.env.VITE_NSE_BASE ??
-  (import.meta.env.PROD ? "/api/nse" : "/nse");
-const NSE_AUTOCOMPLETE_API = `${NSE_BASE}/api/NextApi/search/autocomplete?q=`;
-const NSE_METADATA_API = `${NSE_BASE}/api/NextApi/apiClient/GetQuoteApi?functionName=getMetaData&symbol=`;
+// Default to the dev proxy (/markets → vite.config.ts). In production, route
+// through our own serverless proxy (/api/markets) so the call is same-origin
+// and avoids external CORS limits unless VITE_SEARCH_BASE overrides it.
+const SEARCH_BASE =
+  import.meta.env.VITE_SEARCH_BASE ??
+  (import.meta.env.PROD ? "/api/markets" : "/markets");
+const SEARCH_API = `${SEARCH_BASE}/common_services/searchScrips?section=stock&domain=mm&SearchPhrase=`;
 
 function prettyJson(x: unknown): string {
   try {
@@ -64,10 +63,9 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
-    { symbol: string; symbol_info: string }[]
+    { symbol: string; company: string; isin?: string }[]
   >([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [metaLoading, setMetaLoading] = useState(false);
   const [searchError, setSearchError] = useState<string>("");
   const [candles, setCandles] = useState<CandleBar[]>([]);
   const [raw, setRaw] = useState<string>("");
@@ -158,21 +156,47 @@ export default function App() {
       setSearchLoading(true);
       setSearchError("");
       try {
-        const res = await fetch(
-          `${NSE_AUTOCOMPLETE_API}${encodeURIComponent(query)}`
-        );
+        const res = await fetch(`${SEARCH_API}${encodeURIComponent(query)}`);
         if (!res.ok) {
           throw new Error(`Search failed (status ${res.status})`);
         }
         const data = await res.json();
-        setSearchResults(
-          Array.isArray(data?.symbols)
-            ? data.symbols.map((s: any) => ({
-                symbol: s.symbol,
-                symbol_info: s.symbol_info,
-              }))
-            : []
-        );
+        const list: any[] = Array.isArray(data) ? data : [];
+        const deduped = new Map<
+          string,
+          { symbol: string; company: string; isin?: string; exchange?: string }
+        >();
+
+        list.forEach((item) => {
+          const rawCompany = String(item?.Company ?? "");
+          const cleanCompany = rawCompany.replace(/<[^>]+>/g, "");
+          const isinMatch = cleanCompany.match(/(INE[A-Z0-9]{9,})/i);
+          const isin = isinMatch?.[1]?.toUpperCase();
+          const symbol = item?.Symbol ?? item?.symbol ?? "";
+          const exchange = item?.ExchangeName ?? item?.exchange;
+          if (!symbol) return;
+
+          const existing = deduped.get(symbol);
+          const next = {
+            symbol,
+            company: cleanCompany,
+            isin,
+            exchange,
+          };
+
+          // Prefer NSE entries and ones where ISIN is available.
+          if (!existing) {
+            deduped.set(symbol, next);
+          } else if (
+            (next.exchange?.toLowerCase() === "nse" &&
+              existing.exchange?.toLowerCase() !== "nse") ||
+            (!existing.isin && next.isin)
+          ) {
+            deduped.set(symbol, next);
+          }
+        });
+
+        setSearchResults(Array.from(deduped.values()));
       } catch (err: any) {
         setSearchError(err?.message ?? "Unable to search at the moment.");
         setSearchResults([]);
@@ -184,28 +208,17 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  async function selectSymbol(symbol: string, company: string) {
+  function selectSymbol(symbol: string, company: string, isin?: string) {
     setSearchQuery(`${symbol} — ${company}`);
     setSearchResults([]);
     setSearchError("");
-    setMetaLoading(true);
-    try {
-      const res = await fetch(
-        `${NSE_METADATA_API}${encodeURIComponent(symbol)}`
-      );
-      if (!res.ok) {
-        throw new Error(`Metadata fetch failed (status ${res.status})`);
-      }
-      const data = await res.json();
-      if (!data?.isin) {
-        throw new Error("ISIN not found in response");
-      }
-      setInstrumentKey(`NSE_EQ|${data.isin}`);
-    } catch (err: any) {
-      setSearchError(err?.message ?? "Unable to fetch symbol metadata.");
-    } finally {
-      setMetaLoading(false);
+
+    if (!isin) {
+      setSearchError("ISIN not found for the selected symbol.");
+      return;
     }
+
+    setInstrumentKey(`NSE_EQ|${isin}`);
   }
 
   return (
@@ -222,10 +235,9 @@ export default function App() {
                 style={{ width: "100%" }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type to search NSE symbols"
+                placeholder="Type to search symbols"
                 autoComplete="off"
               />
-              {metaLoading && <span className="pill">Loading ISIN…</span>}
             </div>
             {searchError && <span className="error small">{searchError}</span>}
             {!!searchResults.length && (
@@ -234,10 +246,12 @@ export default function App() {
                   <button
                     type="button"
                     key={item.symbol}
-                    onClick={() => selectSymbol(item.symbol, item.symbol_info)}
+                    onClick={() =>
+                      selectSymbol(item.symbol, item.company, item.isin)
+                    }
                   >
                     <div className="dropdown-title">{item.symbol}</div>
-                    <div className="muted">{item.symbol_info}</div>
+                    <div className="muted">{item.company}</div>
                   </button>
                 ))}
                 {searchLoading && <div className="muted">Searching…</div>}
