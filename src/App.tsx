@@ -6,9 +6,12 @@ import { isValidYmd } from "./upstox/utils";
 import Chart from "./component/Chart.tsx";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
-// Default to the dev proxy (/nse → vite.config.ts). Override with VITE_NSE_BASE
-// (e.g., your own backend route) for production.
-const NSE_BASE = import.meta.env.VITE_NSE_BASE ?? "/nse";
+// Default to the dev proxy (/nse → vite.config.ts). In production, fall back to
+// NSE directly unless VITE_NSE_BASE is provided (so Vercel doesn't hit its own
+// domain and trip CORS).
+const NSE_BASE =
+  import.meta.env.VITE_NSE_BASE ??
+  (import.meta.env.PROD ? "https://www.nseindia.com" : "/nse");
 const NSE_AUTOCOMPLETE_API = `${NSE_BASE}/api/NextApi/search/autocomplete?q=`;
 const NSE_METADATA_API = `${NSE_BASE}/api/NextApi/apiClient/GetQuoteApi?functionName=getMetaData&symbol=`;
 
