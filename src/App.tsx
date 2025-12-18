@@ -5,7 +5,7 @@ import { HistoricalMarketDataService } from "./upstox/service";
 import { isValidYmd } from "./upstox/utils";
 import { ChartProvider } from "./component/chart/context/chartStore.tsx";
 import { TradingChart } from "./component/chart/TradingChart.tsx";
-import type { BusinessDay, Time, UTCTimestamp } from "lightweight-charts";
+import type { UTCTimestamp } from "lightweight-charts";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
 
@@ -43,39 +43,10 @@ function downloadText(filename: string, content: string, mime: string): void {
 const isFiniteNum = (v: unknown): v is number =>
   typeof v === "number" && Number.isFinite(v);
 
-function isoToBusinessDay(iso: string): BusinessDay | null {
-  // Expecting something like "2025-10-01T00:00:00+05:30"
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  const day = Number(m[3]);
-  if (
-    !Number.isFinite(year) ||
-    !Number.isFinite(month) ||
-    !Number.isFinite(day)
-  )
-    return null;
-  return { year, month, day };
-}
-
 function isoToUtcTimestamp(iso: string): UTCTimestamp | null {
   const ms = Date.parse(iso);
   if (Number.isNaN(ms)) return null;
   return Math.floor(ms / 1000) as UTCTimestamp;
-}
-
-function timeKey(t: Time): string {
-  if (typeof t === "number") return `u:${t}`;
-  return `d:${t.year}-${String(t.month).padStart(2, "0")}-${String(
-    t.day
-  ).padStart(2, "0")}`;
-}
-
-function timeSortKey(t: Time): number {
-  if (typeof t === "number") return t;
-  // yyyymmdd for stable ordering
-  return t.year * 10000 + t.month * 100 + t.day;
 }
 
 export default function App() {
@@ -123,10 +94,8 @@ export default function App() {
     >["initialCandles"];
     type ChartCandle = InitialCandlesProp extends Array<infer T> ? T : never;
 
-    const dailyish = unit === "days" || unit === "weeks" || unit === "months";
-
     const out: ChartCandle[] = [];
-    const seen = new Set<string>();
+    const seen = new Set<number>();
 
     for (const c of candles) {
       if (
@@ -140,15 +109,12 @@ export default function App() {
         continue;
       }
 
-      const time = dailyish
-        ? isoToBusinessDay(c.timestamp)
-        : isoToUtcTimestamp(c.timestamp);
+      const time = isoToUtcTimestamp(c.timestamp);
 
       if (!time) continue;
 
-      const k = timeKey(time);
-      if (seen.has(k)) continue;
-      seen.add(k);
+      if (seen.has(time)) continue;
+      seen.add(time);
 
       // IMPORTANT: don't include volume here unless ChartProvider's Candle type includes it
       out.push({
@@ -160,9 +126,9 @@ export default function App() {
       } as unknown as ChartCandle);
     }
 
-    out.sort((a: any, b: any) => timeSortKey(a.time) - timeSortKey(b.time));
+    out.sort((a: any, b: any) => (a.time as number) - (b.time as number));
     return out;
-  }, [candles, unit]);
+  }, [candles]);
 
   async function runFetch() {
     setError("");
