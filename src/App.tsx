@@ -9,9 +9,6 @@ import type { UTCTimestamp } from "lightweight-charts";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
 
-// ✅ Shift chart time BACK by 3 hours 45 minutes
-const TIME_SHIFT_SECONDS = (3 * 60 + 45) * 60; // 13,500 seconds
-
 function prettyJson(x: unknown): string {
   try {
     return JSON.stringify(x, null, 2);
@@ -46,10 +43,22 @@ function downloadText(filename: string, content: string, mime: string): void {
 const isFiniteNum = (v: unknown): v is number =>
   typeof v === "number" && Number.isFinite(v);
 
-function isoToUtcTimestamp(iso: string): UTCTimestamp | null {
+// ✅ lightweight-charts is UTC-based.
+// Your Upstox timestamps are IST (+05:30). We shift the epoch by +05:30
+// so the chart "UTC wall clock" matches IST wall clock for intraday.
+const IST_OFFSET_SECONDS = 330 * 60;
+
+function isoIstToChartTimestamp(iso: string): UTCTimestamp | null {
   const ms = Date.parse(iso);
   if (Number.isNaN(ms)) return null;
-  return Math.floor(ms / 1000) as UTCTimestamp;
+
+  const shiftedMs = ms + IST_OFFSET_SECONDS * 1000;
+  return Math.floor(shiftedMs / 1000) as UTCTimestamp;
+}
+
+function isoToIstYmd(iso: string): string {
+  // Upstox candle timestamps start with YYYY-MM-DD...
+  return typeof iso === "string" && iso.length >= 10 ? iso.slice(0, 10) : "";
 }
 
 export default function App() {
@@ -89,15 +98,20 @@ export default function App() {
     };
   }, [candles]);
 
-  // ✅ Derive chart-ready candles from API candles (keeps your CandleBar[] untouched)
+  // ✅ Derive chart-ready candles from API candles (keeps CandleBar[] untouched)
+  // ✅ For unit days/weeks/months -> use BusinessDay string "YYYY-MM-DD" so chart doesn't show hours
+  // ✅ For minutes/hours -> use IST-shifted UTCTimestamp so 09:15 IST plots as 09:15 on chart axis
   const initialChartCandles = useMemo(() => {
     type InitialCandlesProp = React.ComponentProps<
       typeof ChartProvider
     >["initialCandles"];
     type ChartCandle = InitialCandlesProp extends Array<infer T> ? T : never;
 
+    const isDayOrHigher =
+      unit === "days" || unit === "weeks" || unit === "months";
+
     const out: ChartCandle[] = [];
-    const seen = new Set<number>();
+    const seen = new Set<string>();
 
     for (const c of candles) {
       if (
@@ -111,27 +125,48 @@ export default function App() {
         continue;
       }
 
-      const time = isoToUtcTimestamp(c.timestamp);
-      if (time == null) continue;
+      if (isDayOrHigher) {
+        const ymd = isoToIstYmd(c.timestamp);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) continue;
 
-      // ✅ shift chart time backward by 3h 45m
-      const shiftedTime = (Number(time) - TIME_SHIFT_SECONDS) as UTCTimestamp;
+        // Dedup by date (not by timestamp) for daily+
+        if (seen.has(ymd)) continue;
+        seen.add(ymd);
 
-      if (seen.has(shiftedTime as number)) continue;
-      seen.add(shiftedTime as number);
+        out.push({
+          time: ymd as any, // BusinessDay string
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        } as unknown as ChartCandle);
+      } else {
+        const t = isoIstToChartTimestamp(c.timestamp);
+        if (t == null) continue;
 
-      out.push({
-        time: shiftedTime,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      } as unknown as ChartCandle);
+        const key = String(t);
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        out.push({
+          time: t,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        } as unknown as ChartCandle);
+      }
     }
 
-    out.sort((a: any, b: any) => (a.time as number) - (b.time as number));
+    out.sort((a: any, b: any) => {
+      const ta = a.time;
+      const tb = b.time;
+      if (typeof ta === "number" && typeof tb === "number") return ta - tb;
+      return String(ta).localeCompare(String(tb));
+    });
+
     return out;
-  }, [candles]);
+  }, [candles, unit]);
 
   async function runFetch() {
     setError("");
@@ -170,14 +205,6 @@ export default function App() {
         mode === "range"
           ? await svc.fetchHistoricalCandlesRange(opts)
           : await svc.fetchHistoricalCandlesFromStart(opts);
-      // ========================
-      const last5 = [...data]
-        .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
-        .slice(-5);
-
-      console.log("Last 5 candles (latest):", last5);
-      console.log("Last candle timestamp:", last5.at(-1)?.timestamp);
-      // ========================
 
       setCandles(data);
       setRaw(
@@ -319,7 +346,7 @@ export default function App() {
 
         {initialChartCandles.length > 0 && (
           <ChartProvider initialCandles={initialChartCandles}>
-            <div style={{ minHeight: "450px" }} className="chartWrap">
+            <div style={{ minHeight: "550px" }} className="chartWrap">
               <TradingChart />
             </div>
           </ChartProvider>
