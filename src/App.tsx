@@ -9,6 +9,9 @@ import type { UTCTimestamp } from "lightweight-charts";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
 
+// ✅ Shift chart time BACK by 3 hours 45 minutes
+const TIME_SHIFT_SECONDS = (3 * 60 + 45) * 60; // 13,500 seconds
+
 function prettyJson(x: unknown): string {
   try {
     return JSON.stringify(x, null, 2);
@@ -60,7 +63,7 @@ export default function App() {
     useState<string>(DEFAULT_INSTRUMENT);
   const [unit, setUnit] = useState<IntervalUnit>("days");
   const [interval, setInterval] = useState<string>("1");
-  const [startDate, setStartDate] = useState<string>("2025-10-01");
+  const [startDate, setStartDate] = useState<string>("2025-12-15");
   const [endDate, setEndDate] = useState<string>("2024-11-01");
   const [mode, setMode] = useState<"range" | "fromStartToNow">(
     "fromStartToNow"
@@ -88,7 +91,6 @@ export default function App() {
 
   // ✅ Derive chart-ready candles from API candles (keeps your CandleBar[] untouched)
   const initialChartCandles = useMemo(() => {
-    // Infer the element type ChartProvider expects without importing its types
     type InitialCandlesProp = React.ComponentProps<
       typeof ChartProvider
     >["initialCandles"];
@@ -110,15 +112,16 @@ export default function App() {
       }
 
       const time = isoToUtcTimestamp(c.timestamp);
+      if (time == null) continue;
 
-      if (!time) continue;
+      // ✅ shift chart time backward by 3h 45m
+      const shiftedTime = (Number(time) - TIME_SHIFT_SECONDS) as UTCTimestamp;
 
-      if (seen.has(time)) continue;
-      seen.add(time);
+      if (seen.has(shiftedTime as number)) continue;
+      seen.add(shiftedTime as number);
 
-      // IMPORTANT: don't include volume here unless ChartProvider's Candle type includes it
       out.push({
-        time,
+        time: shiftedTime,
         open: c.open,
         high: c.high,
         low: c.low,
@@ -167,6 +170,14 @@ export default function App() {
         mode === "range"
           ? await svc.fetchHistoricalCandlesRange(opts)
           : await svc.fetchHistoricalCandlesFromStart(opts);
+      // ========================
+      const last5 = [...data]
+        .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
+        .slice(-5);
+
+      console.log("Last 5 candles (latest):", last5);
+      console.log("Last candle timestamp:", last5.at(-1)?.timestamp);
+      // ========================
 
       setCandles(data);
       setRaw(
@@ -308,11 +319,9 @@ export default function App() {
 
         {initialChartCandles.length > 0 && (
           <ChartProvider initialCandles={initialChartCandles}>
-            {/* <div className="app"> */}
             <div style={{ minHeight: "450px" }} className="chartWrap">
               <TradingChart />
             </div>
-            {/* </div> */}
           </ChartProvider>
         )}
 
