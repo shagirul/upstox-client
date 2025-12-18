@@ -3,7 +3,9 @@ import type { CandleBar, IntervalUnit, ApiError } from "./upstox/types";
 import { UpstoxApiClient } from "./upstox/client";
 import { HistoricalMarketDataService } from "./upstox/service";
 import { isValidYmd } from "./upstox/utils";
-import Chart from "./component/Chart.tsx";
+import { ChartProvider } from "./component/chart/context/chartStore.tsx";
+import { TradingChart } from "./component/chart/TradingChart.tsx";
+import type { BusinessDay, Time, UTCTimestamp } from "lightweight-charts";
 
 const DEFAULT_INSTRUMENT = "NSE_EQ|INE848E01016";
 
@@ -33,6 +35,47 @@ function downloadText(filename: string, content: string, mime: string): void {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ----------------------
+// Safe conversion helpers
+// ----------------------
+const isFiniteNum = (v: unknown): v is number =>
+  typeof v === "number" && Number.isFinite(v);
+
+function isoToBusinessDay(iso: string): BusinessDay | null {
+  // Expecting something like "2025-10-01T00:00:00+05:30"
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  )
+    return null;
+  return { year, month, day };
+}
+
+function isoToUtcTimestamp(iso: string): UTCTimestamp | null {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  return Math.floor(ms / 1000) as UTCTimestamp;
+}
+
+function timeKey(t: Time): string {
+  if (typeof t === "number") return `u:${t}`;
+  return `d:${t.year}-${String(t.month).padStart(2, "0")}-${String(
+    t.day
+  ).padStart(2, "0")}`;
+}
+
+function timeSortKey(t: Time): number {
+  if (typeof t === "number") return t;
+  // yyyymmdd for stable ordering
+  return t.year * 10000 + t.month * 100 + t.day;
 }
 
 export default function App() {
@@ -71,6 +114,55 @@ export default function App() {
       last: candles[candles.length - 1]?.timestamp,
     };
   }, [candles]);
+
+  // ✅ Derive chart-ready candles from API candles (keeps your CandleBar[] untouched)
+  const initialChartCandles = useMemo(() => {
+    // Infer the element type ChartProvider expects without importing its types
+    type InitialCandlesProp = React.ComponentProps<
+      typeof ChartProvider
+    >["initialCandles"];
+    type ChartCandle = InitialCandlesProp extends Array<infer T> ? T : never;
+
+    const dailyish = unit === "days" || unit === "weeks" || unit === "months";
+
+    const out: ChartCandle[] = [];
+    const seen = new Set<string>();
+
+    for (const c of candles) {
+      if (
+        !c ||
+        typeof c.timestamp !== "string" ||
+        !isFiniteNum(c.open) ||
+        !isFiniteNum(c.high) ||
+        !isFiniteNum(c.low) ||
+        !isFiniteNum(c.close)
+      ) {
+        continue;
+      }
+
+      const time = dailyish
+        ? isoToBusinessDay(c.timestamp)
+        : isoToUtcTimestamp(c.timestamp);
+
+      if (!time) continue;
+
+      const k = timeKey(time);
+      if (seen.has(k)) continue;
+      seen.add(k);
+
+      // IMPORTANT: don't include volume here unless ChartProvider's Candle type includes it
+      out.push({
+        time,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      } as unknown as ChartCandle);
+    }
+
+    out.sort((a: any, b: any) => timeSortKey(a.time) - timeSortKey(b.time));
+    return out;
+  }, [candles, unit]);
 
   async function runFetch() {
     setError("");
@@ -147,9 +239,7 @@ export default function App() {
               placeholder="e.g. NSE_EQ|INE848E01016"
               autoComplete="off"
             />
-            <div className="muted small">
-              Enter the exact instrument key.
-            </div>
+            <div className="muted small">Enter the exact instrument key.</div>
           </label>
         </div>
 
@@ -210,17 +300,6 @@ export default function App() {
             />
           </label>
 
-          {/* <label style={{ minWidth: 220 }}>
-            Holiday check (v2)
-            <select
-              value={includeHolidayCheck ? "on" : "off"}
-              onChange={(e) => setIncludeHolidayCheck(e.target.value === "on")}
-            >
-              <option value="on">on (weekend + Upstox holiday list)</option>
-              <option value="off">off (weekend only)</option>
-            </select>
-          </label> */}
-
           <button onClick={runFetch} disabled={loading}>
             {loading ? "Fetching…" : "Fetch"}
           </button>
@@ -260,69 +339,16 @@ export default function App() {
             </div>
           </>
         )}
-        {candles.length > 0 && (
-          <div style={{ padding: "16px" }}>
-            {" "}
-            <Chart candles={candles} />
-          </div>
+
+        {initialChartCandles.length > 0 && (
+          <ChartProvider initialCandles={initialChartCandles}>
+            {/* <div className="app"> */}
+            <div style={{ minHeight: "450px" }} className="chartWrap">
+              <TradingChart />
+            </div>
+            {/* </div> */}
+          </ChartProvider>
         )}
-
-        {/* {summary && (
-          <>
-            <hr />
-            <div className="hstack">
-              <span className="badge">
-                Candles: <strong>{summary.count}</strong>
-              </span>
-              <span className="badge">
-                First: <code>{summary.first}</code>
-              </span>
-              <span className="badge">
-                Last: <code>{summary.last}</code>
-              </span>
-              <span className="badge">
-                Unit: <strong>{unit}</strong> / Interval:{" "}
-                <strong>{interval}</strong>
-              </span>
-            </div>
-          </>
-        )} */}
-
-        {/* {candles.length > 0 && (
-          <>
-            <hr />
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>timestamp</th>
-                    <th>open</th>
-                    <th>high</th>
-                    <th>low</th>
-                    <th>close</th>
-                    <th>volume</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {candles.map((c, i) => (
-                    <tr key={c.timestamp + "_" + i}>
-                      <td>{i + 1}</td>
-                      <td>
-                        <code>{c.timestamp}</code>
-                      </td>
-                      <td>{c.open}</td>
-                      <td>{c.high}</td>
-                      <td>{c.low}</td>
-                      <td>{c.close}</td>
-                      <td>{c.volume}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )} */}
 
         <hr />
       </div>
