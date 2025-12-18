@@ -9,7 +9,7 @@ import type { LineDrawing } from "../types";
 
 type AttachedCtx = {
   chart: IChartApi;
-  series: ISeriesApi;
+  series: ISeriesApi<any>;
   requestUpdate: () => void;
 };
 

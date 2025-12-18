@@ -15,7 +15,7 @@ export function TradingChart() {
 
   const elRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<any> | null>(null);
 
   // primitives currently attached
   const primitiveByIdRef = useRef<Map<string, any>>(new Map());
