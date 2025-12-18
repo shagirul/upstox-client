@@ -15,7 +15,7 @@ export function TradingChart() {
 
   const elRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<any> | null>(null);
 
   // primitives currently attached
   const primitiveByIdRef = useRef<Map<string, any>>(new Map());
@@ -81,13 +81,32 @@ export function TradingChart() {
   }, []);
 
   // update candle data when store changes
+  // useEffect(() => {
+  //   const series = seriesRef.current;
+  //   const chart = chartRef.current;
+  //   if (!series || !chart) return;
+
+  //   series.setData(candles as any);
+  //   // optional: chart.timeScale().fitContent();
+  // }, [candles]);
   useEffect(() => {
     const series = seriesRef.current;
     const chart = chartRef.current;
     if (!series || !chart) return;
 
     series.setData(candles as any);
-    // optional: chart.timeScale().fitContent();
+
+    // ✅ If candle.time is a number => intraday => show time
+    // ✅ If candle.time is a YYYY-MM-DD string => day+ => hide time
+    const firstTime = (candles as any)?.[0]?.time;
+    const showTime = typeof firstTime === "number";
+
+    chart.applyOptions({
+      timeScale: {
+        timeVisible: showTime,
+        secondsVisible: false,
+      },
+    });
   }, [candles]);
 
   // sync drawings -> primitives
@@ -124,5 +143,5 @@ export function TradingChart() {
     }
   }, [drawings]);
 
-  return <div style={{ minHeight: "450px" }} ref={elRef} className="chart" />;
+  return <div style={{ minHeight: "550px" }} ref={elRef} className="chart" />;
 }

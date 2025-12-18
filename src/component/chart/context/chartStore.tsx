@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useMemo, useReducer } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+} from "react";
 import type { Candle, Drawing } from "../types";
 
 type ChartState = {
@@ -70,6 +76,11 @@ export function ChartProvider(props: {
     drawingOrder: [],
   });
 
+  // ✅ NEW: keep store candles in sync when parent provides new candles
+  useEffect(() => {
+    dispatch({ type: "candles/set", candles: props.initialCandles });
+  }, [props.initialCandles]);
+
   return (
     <StateCtx.Provider value={state}>
       <DispatchCtx.Provider value={dispatch}>
@@ -112,7 +123,6 @@ export function useChartActions() {
   );
 }
 
-// selector helpers
 export function useDrawingsList(): Drawing[] {
   const { drawingsById, drawingOrder } = useChartState();
   return useMemo(
