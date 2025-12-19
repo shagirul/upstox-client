@@ -5,7 +5,7 @@ import React, {
   useMemo,
   useReducer,
 } from "react";
-import type { Candle, Drawing } from "../types";
+import type { Candle, Drawing } from "../drawing/types";
 
 type ChartState = {
   candles: Candle[];
@@ -76,7 +76,6 @@ export function ChartProvider(props: {
     drawingOrder: [],
   });
 
-  // ✅ NEW: keep store candles in sync when parent provides new candles
   useEffect(() => {
     dispatch({ type: "candles/set", candles: props.initialCandles });
   }, [props.initialCandles]);
@@ -123,10 +122,21 @@ export function useChartActions() {
   );
 }
 
+// export function useDrawingsList(): Drawing[] {
+//   const { drawingsById, drawingOrder } = useChartState();
+//   return useMemo(
+//     () => drawingOrder.map((id) => drawingsById[id]).filter(Boolean),
+//     [drawingsById, drawingOrder]
+//   );
+// }
+function isDrawing(x: Drawing | undefined): x is Drawing {
+  return x !== undefined;
+}
+
 export function useDrawingsList(): Drawing[] {
   const { drawingsById, drawingOrder } = useChartState();
   return useMemo(
-    () => drawingOrder.map((id) => drawingsById[id]).filter(Boolean),
+    () => drawingOrder.map((id) => drawingsById[id]).filter(isDrawing),
     [drawingsById, drawingOrder]
   );
 }
