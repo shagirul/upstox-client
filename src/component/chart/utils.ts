@@ -1,4 +1,5 @@
-import type { Candle } from "./types";
+import type { Candle } from "./drawing/types";
+import { toTime } from "./drawing/toTime";
 
 export function uid(prefix: string): string {
   return `${prefix}_${Math.random()
@@ -40,12 +41,13 @@ export function makeCandles(count: number = 140): Candle[] {
     price = close;
 
     out.push({
-      time: isoDay(date),
+      time: toTime(isoDay(date)), // ✅ IMPORTANT: BusinessDay object
       open: Number(open.toFixed(2)),
       high: Number(high.toFixed(2)),
       low: Number(low.toFixed(2)),
       close: Number(close.toFixed(2)),
     });
   }
+
   return out;
 }
